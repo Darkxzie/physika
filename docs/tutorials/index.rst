@@ -75,7 +75,6 @@ Tutorials
    :caption: Fluid Dynamics
 
    learn_flux_limiter_euler_equations
-   shallow_water_rk3
 
 .. toctree::
    :maxdepth: 1
