@@ -522,7 +522,7 @@ CPU run with the default single-precision tensors gave approximately
 ``4.24e-7``; the exact roundoff depends on the execution environment. This
 small drift checks conservation, not the accuracy of wave propagation.
 The program itself does not produce a plot or a stage-by-stage stability
-report; the tests below check the intermediate states.
+report; intermediate states were checked separately during validation.
 
 To interpret the state in your own diagnostics, ``final[0]`` is depth,
 ``final[0] - H`` is surface displacement, and the two momentum components
@@ -554,14 +554,10 @@ Limits and useful checks
 Checking the implementation
 ---------------------------
 
-From the repository root, run the numerical tests with
-
-.. code-block:: bash
-
-   python -m pytest tests/test_shallow_water_rk3.py -q
-
-These tests compile the Physika source and exercise its generated functions.
-They check uniform water at rest and in motion, conservation of water and
+The implementation was checked using separate numerical tests during
+development; those test files are not included in this tutorial-only change.
+The checks compiled the Physika source and exercised its generated functions.
+They checked uniform water at rest and in motion, conservation of water and
 both momentum components, symmetry when swapping x and y, and pressure-driven
 acceleration. They also inspect every Runge–Kutta stage of the default example
 for positive finite depth and the CFL budget. In the checked run, the maximum
