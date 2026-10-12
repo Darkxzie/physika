@@ -1,3 +1,5 @@
+:orphan:
+
 Two-dimensional shallow water with Runge–Kutta time stepping
 ============================================================
 
@@ -16,17 +18,11 @@ is at the end. For the language basics and installation, see
 What “shallow water” means
 --------------------------
 
-The simulated water has a depth, but the computational grid covers only the two
-horizontal directions. Each grid cell represents an entire water column.
-The velocities are averages through that column; the model does not resolve a
-vertical velocity profile or a three-dimensional flow field. A surface plot
-with height on its vertical axis would still show a two-dimensional model.
-
-The shallow-water approximation applies when the vertical length scale is
-small compared with the horizontal scale of the motion. Vertical acceleration
-is neglected in the pressure balance, giving hydrostatic pressure. This
-example assumes a flat, stationary bed and omits friction, wind, rotation,
-bathymetry, and external sources of water or momentum.
+Each grid cell represents a water column, with velocities averaged over its
+depth. The grid resolves two horizontal directions, not vertical structure.
+Shallow-water theory assumes depth is small relative to horizontal scales and
+pressure is hydrostatic. We use a flat, stationary bed without friction,
+wind, rotation, or external sources.
 
 Let :math:`x` and :math:`y` be horizontal coordinates and :math:`t` be time.
 The total water depth is :math:`h(x,y,t)`, the constant reference depth is
@@ -66,20 +62,15 @@ With the subscript “phys” denoting dimensional quantities, the conversion is
    u_{\mathrm{phys}}=U_*u, \quad v_{\mathrm{phys}}=U_*v,
    \qquad g=\frac{g_*D_*}{U_*^2}=1.
 
-The reference depth and surface displacement use the same depth scale as
-:math:`h`. Setting the dimensionless reference depth to one does not say the
-physical water is as deep as the domain is wide: vertical and horizontal
-lengths use different scales. A shallow physical interpretation requires
-:math:`D_*/L_*` to be small, and the horizontal scale of the bump must also be
-large compared with the depth. The code does not choose those physical scales.
+Depth, reference depth, and surface displacement share the scale :math:`D_*`.
+Setting :math:`H=1` does not imply a deep ocean: horizontal and vertical scales
+differ. Choose :math:`D_*/L_*` small, with the bump also much wider than the depth.
 
 From moving water to conservation laws
 --------------------------------------
 
-Water entering a cell increases its depth; water leaving decreases it. Momentum
-is carried with the moving water, and pressure also transfers momentum between
-neighbouring columns. We therefore evolve depth and the two momentum
-components together rather than updating velocities independently.
+Water transports mass and momentum between cells; pressure also transfers
+momentum. We evolve depth and both momentum components together.
 
 The *primitive* fields are depth and velocities. The *conserved* state
 :math:`\mathbf q` and the recovery of its primitive fields are
@@ -111,11 +102,9 @@ face length and per unit time. The equations are
    \mathbf G(\mathbf q)=
    \begin{pmatrix}hv\\huv\\hv^2+\tfrac12gh^2\end{pmatrix}.
 
-The symbol :math:`\partial` denotes a partial derivative, varying one
-coordinate while holding the others fixed; :math:`\mathbf 0` is a vector of
-three zeros. The first row conserves water, the second conserves
-:math:`x` momentum, and the third conserves :math:`y` momentum.
-The hydrostatic contribution used in the code is
+Here :math:`\partial` denotes a partial derivative and :math:`\mathbf 0` a
+zero vector. The rows conserve water, x momentum, and y momentum respectively.
+The hydrostatic contribution is
 
 .. math::
 
@@ -139,10 +128,8 @@ cells along :math:`y`. Their widths and centre coordinates are
    \qquad
    i=0,\ldots,N_x-1, \quad j=0,\ldots,N_y-1.
 
-The integer indices :math:`i` and :math:`j` label cells, not time steps.
-Neither endpoint is a cell centre. Let :math:`C_{ij}` denote the rectangular
-cell centred at :math:`(x_i,y_j)`, whose area is
-:math:`\Delta x\Delta y`. Its exact average state is
+Indices :math:`i,j` label cells. The cell :math:`C_{ij}`, centred at
+:math:`(x_i,y_j)`, has area :math:`\Delta x\Delta y` and average state
 
 .. math::
 
@@ -161,34 +148,25 @@ boundary fluxes:
     -\frac{\overline{\mathbf G}_{i,j+1/2}
                   -\overline{\mathbf G}_{i,j-1/2}}{\Delta y}.
 
-Here :math:`d/dt` is the time derivative of a cell average. The barred fluxes
-are exact averages of the physical flux along each cell face. Half-integer
-indices label faces: :math:`i+1/2` is the right face, :math:`i-1/2` the left,
-:math:`j+1/2` the top, and :math:`j-1/2` the bottom. The minus signs express
-“incoming minus outgoing”: excess outward flux reduces the stored quantity.
+Barred fluxes are averages along cell faces; :math:`d/dt` is a time derivative.
+Faces :math:`i+1/2,i-1/2` are right/left, and :math:`j+1/2,j-1/2` are top/bottom.
+The minus signs give incoming minus outgoing transport.
 
-The numerical array :math:`\mathbf q_{ij}` approximates
-:math:`\overline{\mathbf q}_{ij}`. Below we omit the bar for numerical states
-and replace the unknown exact face fluxes with computable numerical fluxes.
-Within each cell the method uses a constant state; it does not reconstruct
-slopes. That choice makes the spatial method first order.
+Our numerical state :math:`\mathbf q_{ij}` approximates this cell average;
+we drop its bar below. We approximate face fluxes using constant states in
+each cell, giving first-order spatial accuracy.
 
 Array axes and periodic neighbours
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The complete ``q`` array has type ``ℝ[3, m, n]``: three conserved components,
-then the two spatial dimensions. In ``q[k, i, j]``, the component index ``k``
-is 0 for depth, 1 for x momentum, or 2 for y momentum. ``ℝ`` denotes real numbers; ``ℕ`` denotes
-natural-number counts and indices. The shape parameters ``m`` and ``n`` stand
-for the two grid sizes, instantiated as ``Nx`` and ``Ny``. This code-shape
-``n`` is unrelated to the time index used below.
+``q[k, i, j]`` has type ``ℝ[3, m, n]``. Component ``k`` is 0 for depth,
+1 for x momentum, and 2 for y momentum; ``m,n`` are the grid sizes ``Nx,Ny``.
+``ℝ`` denotes real values and ``ℕ`` natural-number counts and indices.
+The shape parameter ``n`` is unrelated to the time index below.
 
-After extracting ``q[0]``, ``q[1]``, or ``q[2]``, each component is a
-``ℝ[m, n]`` array. On these component arrays **axis 0 is x and axis 1 is y**.
-These are not the spatial axis numbers of the unsliced three-dimensional
-state array. If plotting with software that treats the first index as a
-vertical image row, account for this convention, for example by transposing
-the component array when placing x horizontally.
+Each extracted component is a ``ℝ[m, n]`` array: **axis 0 is x and axis 1
+is y**. These axis numbers apply after selecting ``q[k]``. Transpose a
+component when plotting it with image software that puts rows vertically.
 
 ``roll(w, -1, 0)`` places the next x-cell value at each current cell;
 ``roll(w, 1, 0)`` supplies the previous x-cell value. Axis 1 does the same in
@@ -199,20 +177,16 @@ y. Here ``w`` is any one component field. Algebraically,
    [\operatorname{roll}(w,-1,0)]_{ij}=w_{i+1,j}, \qquad
    [\operatorname{roll}(w,-1,1)]_{ij}=w_{i,j+1}.
 
-The operator :math:`\operatorname{roll}` shifts an array with wrap-around.
-All spatial indices wrap modulo their respective cell counts: the neighbour
-after the last x-cell is the first x-cell, and similarly in y. Opposite edges
-are joined, so a wave leaving one edge re-enters through the opposite edge.
-These are periodic boundaries, not reflecting walls or open boundaries.
+The operator :math:`\operatorname{roll}` wraps indices at each edge. Waves
+leaving one edge re-enter at the opposite edge: these are periodic boundaries,
+not walls or open boundaries.
 
 Rusanov fluxes at cell faces
 ----------------------------
 
-Two adjacent cells usually predict different physical fluxes. We need one
-shared flux so that whatever leaves one cell enters its neighbour. The local
-Rusanov flux averages the two physical fluxes and adds a damping term
-proportional to their state jump. The damping is numerical diffusion, not a
-physical viscosity specified for the water.
+A shared face flux makes the amount leaving one cell enter its neighbour.
+Rusanov averages adjacent physical fluxes and damps their state jump. This
+adds numerical diffusion, not physical viscosity.
 
 Gravity waves move relative to the fluid with speed :math:`c`. The nonnegative
 cell speed bounds :math:`s^x` and :math:`s^y` combine advection and waves:
@@ -264,9 +238,8 @@ inside a cell. The vector Rusanov fluxes are
                           \mathbf G(\mathbf q_{i,j+1})\right]
     -\tfrac12a^y_{i,j+1/2}(\mathbf q_{i,j+1}-\mathbf q_{ij}).
 
-The left and right states at an x-face are simply its adjacent cell states;
-the lower and upper states play the same role at a y-face. The same face
-speed multiplies the jump in each of the three conserved components.
+Each face uses its two adjacent cell states and the same speed bound for
+all three conserved components.
 
 From fluxes to the right-hand side
 ----------------------------------
@@ -310,22 +283,6 @@ speeds and pressure, then calls ``divergence`` for depth and both momenta.
 The returned ``dh``, ``dhu``, and ``dhv`` are time derivatives, not yet changes
 over a time step.
 
-.. code-block:: text
-
-   def rhs(q: ℝ[3, m, n], g: ℝ, dx: ℝ, dy: ℝ): ℝ[3, m, n]:
-       h: ℝ[m, n] = q[0]
-       hu: ℝ[m, n] = q[1]
-       hv: ℝ[m, n] = q[2]
-       u: ℝ[m, n] = hu / h
-       v: ℝ[m, n] = hv / h
-       c: ℝ[m, n] = sqrt(g * h)
-       ax: ℝ[m, n] = face_speed(abs(u) + c, 0)
-       ay: ℝ[m, n] = face_speed(abs(v) + c, 1)
-       pressure: ℝ[m, n] = 0.5 * g * h * h
-       dh: ℝ[m, n] = divergence(h, hu, hv, ax, ay, dx, dy)
-       dhu: ℝ[m, n] = divergence(hu, hu * u + pressure, hv * u, ax, ay, dx, dy)
-       dhv: ℝ[m, n] = divergence(hv, hu * v, hv * v + pressure, ax, ay, dx, dy)
-       return [dh, dhu, dhv]
 
 On a periodic grid, summing a flux difference over all cells cancels every
 face contribution with its neighbour's. This explains discrete conservation
@@ -355,33 +312,18 @@ zero. The full grid state there is :math:`\mathbf q^n`. Define the Euler map
    \mathbf q^{n+1} &= \tfrac13\mathbf q^n+\tfrac23E(\mathbf q^{(2)}).
    \end{aligned}
 
-Parenthesized superscripts :math:`(1)` and :math:`(2)` label internal stages,
-not powers or completed steps. The unparenthesized :math:`n+1` labels the
-next completed time step. Cell indices are suppressed here because the
-formulas act on the whole array. The second-stage weights are three quarters
-on the old state and one quarter on an Euler update of stage one; the final
-weights are one third on the old state and two thirds on an Euler update of
-stage two. Each pair is nonnegative and sums to one, making a convex average.
+Superscripts :math:`(1),(2)` label internal stages, while :math:`n+1` labels
+the next completed step. These formulas act on the whole grid. Each weighted
+pair is a convex average: its coefficients are nonnegative and sum to one.
 
-“Strong stability preserving” means that suitable stability properties of a
-forward Euler update carry over to these combinations under the appropriate
-time-step restriction. It does not mean unconditional stability or an
-automatic guarantee for arbitrary dry states. The temporal method is third
-order for a sufficiently smooth semidiscrete solution; the first-order
-spatial flux still limits the accuracy of the combined solver.
+Strong stability preservation carries suitable forward-Euler stability
+properties through these averages under a timestep restriction. For smooth
+solutions, the method is third order in time; spatial accuracy remains
+first order.
 
-.. code-block:: text
 
-   def rk3_step(q: ℝ[3, m, n], g: ℝ, dx: ℝ, dy: ℝ, Δt: ℝ): ℝ[3, m, n]:
-       q1: ℝ[3, m, n] = q + Δt * rhs(q, g, dx, dy)
-       q2: ℝ[3, m, n] = 0.75 * q + 0.25 * (q1 + Δt * rhs(q1, g, dx, dy))
-       q_next: ℝ[3, m, n] = q / 3.0 + (2.0 / 3.0) * (q2 + Δt * rhs(q2, g, dx, dy))
-       return q_next
-
-``q1`` and ``q2`` are the two internal states, and ``q_next`` is the next
-completed state. Every call to ``rhs`` recomputes the nonlinear quantities
-from its own argument. The method advances x and y fluxes together; there is
-no separate directional time step.
+``q1,q2`` are internal states; ``q_next`` is the completed update. Each
+``rhs`` call recomputes both directional fluxes from its own stage state.
 
 Choosing a time step
 ~~~~~~~~~~~~~~~~~~~~
@@ -418,10 +360,8 @@ For the uniform reference state at rest, the program's parameters give
    \qquad c=1, \qquad
    \mathcal C=0.003(24+24)=0.144.
 
-This calculation describes the uniform reference state, not a measured
-maximum over the bump simulation. The bump increases the local wave speed,
-and evolving velocities also affect the budget. Grid refinement, larger
-amplitude, larger gravity, or longer steps require a fresh check.
+The bump and its evolving velocities increase this budget. Recheck it when
+changing the grid, amplitude, gravity, or timestep.
 
 Starting from a smooth periodic bump
 ------------------------------------
@@ -441,34 +381,16 @@ The initial condition is
 
    x_c=y_c=0.5, \qquad \beta=0.12, \qquad A=0.05, \qquad H=1.
 
-Here :math:`B` is the dimensionless bump shape, :math:`\exp` is the natural
-exponential, :math:`\cos` is cosine, and :math:`\pi` is the usual circle
-constant (cosine arguments are in radians). The constants :math:`x_c` and
-:math:`y_c` set the centre. The positive width parameter :math:`\beta` is the
-literal ``0.12`` in the code; smaller values give a narrower bump. The
-amplitude :math:`A`, named ``amplitude``, is the maximum surface displacement
-of the continuous initial profile. The continuous bump has value one at its
-centre. The even-sized cell-centred grid does not sample that centre exactly,
-so its sampled maximum need not equal the continuous peak.
+The shape :math:`B` peaks at one at its centre :math:`(x_c,y_c)`.
+:math:`A` (``amplitude``) sets the peak displacement; smaller positive
+:math:`\beta` gives a narrower bump. Here :math:`\exp` is the natural
+exponential, :math:`\cos` uses radians, and ``pi`` stores :math:`\pi`.
 
-``initial_state`` samples the smooth profile at cell centres as an
-approximation to the initial cell averages; it does not integrate the profile
-over each cell. It sets both momentum arrays to zero, so initially the water
-is at rest. The nested for-expressions construct the x and y dependence of
-every cell. ``pi`` stores the numerical value of :math:`\pi`, ``bump`` stores
-:math:`B`, and ``zero`` is a zero array with the same shape as ``h``.
+``initial_state`` samples the profile at cell centres to approximate cell
+averages. On this even-sized grid, no cell centre hits the peak exactly.
+The nested for-expressions build ``bump``; ``zero`` initializes both momenta
+at rest.
 
-.. code-block:: text
-
-   def initial_state(Nx: ℕ, Ny: ℕ, H: ℝ, amplitude: ℝ): ℝ[3, Nx, Ny]:
-       x: ℝ[Nx] = for i:ℕ(Nx) -> (i + 0.5) / Nx
-       y: ℝ[Ny] = for j:ℕ(Ny) -> (j + 0.5) / Ny
-       pi: ℝ = 3.141592653589793
-       bump: ℝ[Nx, Ny] = for i:ℕ(Nx) -> for j:ℕ(Ny) -> exp(
-           (cos(2 * pi * (x[i] - 0.5)) + cos(2 * pi * (y[j] - 0.5)) - 2.0) / 0.12)
-       h: ℝ[Nx, Ny] = H + amplitude * bump
-       zero: ℝ[Nx, Ny] = 0.0 * h
-       return [h, zero, zero]
 
 The positive bump adds water relative to the uniform reference depth. Its
 spatial mean is not zero, so the mean initial depth is greater than
@@ -563,12 +485,10 @@ acceleration. They also inspect every Runge–Kutta stage of the default example
 for positive finite depth and the CFL budget. In the checked run, the maximum
 budget was approximately ``0.1471``, below the chosen ``0.2`` target.
 
-The time-accuracy tests keep the grid fixed while reducing the time step.
-One compares a transported shear profile with its exact solution for the
-spatially discretized equations; another compares successively refined runs
-of the nonlinear system. This isolates time-stepping error from spatial
-error. Both checks showed approximately third-order temporal convergence;
-neither changes the first-order accuracy of the spatial flux.
+At a fixed grid, timestep refinement showed approximately third-order
+convergence against an exact semidiscrete shear solution and between
+nonlinear runs. Keeping the grid fixed isolates temporal error; spatial
+accuracy remains first order.
 
 On this checkout, the CLI reports that some constructs fall back from CIC
 verification to the standard type checker and code generator, then reports
