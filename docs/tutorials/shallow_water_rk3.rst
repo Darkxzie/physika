@@ -1,19 +1,23 @@
-:orphan:
-
 Two-dimensional shallow water with Runge–Kutta time stepping
 ============================================================
 
-A raised patch of water pushes on its surroundings. Water flows away from the
-patch, the surface falls, and gravity waves carry the disturbance across the
-surface. This tutorial models that motion on a periodic square, starting from
-a smooth bump with no initial horizontal flow.
+What happens when one part of a water surface is higher than the rest?
+Water flows away from the raised area, and waves spread across the surface.
+In this tutorial, we simulate that motion starting from a small, smooth
+bump in otherwise still water.
 
-The program uses a first-order finite-volume method in space and a three-stage,
-third-order strong-stability-preserving Runge–Kutta method (SSPRK3) in time.
-We derive the update from conservation of water and horizontal momentum, then
-connect each part to ``tutorials/shallow_water_rk3.phyk``. The complete program
-is at the end. For the language basics and installation, see
-:doc:`intro_to_physika` and :doc:`/install`.
+We use the shallow-water equations, which describe flow when the water is
+much shallower than the horizontal distance over which it changes. Instead
+of tracking motion at every depth, we track the water depth and the average
+horizontal flow in two directions. This makes the model simpler than a full
+three-dimensional simulation.
+
+We divide a square into small cells, calculate how water and momentum move
+between neighbouring cells, and advance the solution in time using a
+Runge–Kutta method. The square has periodic boundaries: a wave leaving one
+edge returns at the opposite edge. We build the Physika implementation step
+by step below, with the complete program at the end. For installation and
+language basics, see :doc:`intro_to_physika` and :doc:`/install`.
 
 What “shallow water” means
 --------------------------
