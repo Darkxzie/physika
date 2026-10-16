@@ -277,8 +277,8 @@ Shifting those fluxes backwards supplies the left and bottom faces.
                   ax: ℝ[m, n], ay: ℝ[m, n], dx: ℝ, dy: ℝ): ℝ[m, n]:
        F: ℝ[m, n] = 0.5 * (f + roll(f, -1, 0))
        G: ℝ[m, n] = 0.5 * (flux_y + roll(flux_y, -1, 1))
-       F = F - 0.5 * ax * (roll(w, -1, 0) - w)
-       G = G - 0.5 * ay * (roll(w, -1, 1) - w)
+       F: ℝ[m, n] = F - 0.5 * ax * (roll(w, -1, 0) - w)
+       G: ℝ[m, n] = G - 0.5 * ay * (roll(w, -1, 1) - w)
        return -(F - roll(F, 1, 0)) / dx - (G - roll(G, 1, 1)) / dy
 
 The function ``rhs`` means “right-hand side” and implements
@@ -287,6 +287,21 @@ speeds and pressure, then calls ``divergence`` for depth and both momenta.
 The returned ``dh``, ``dhu``, and ``dhv`` are time derivatives, not yet changes
 over a time step.
 
+
+
+.. code-block:: text
+
+   def rhs(q: ℝ[3, m, n], g: ℝ, dx: ℝ, dy: ℝ): ℝ[3, m, n]:
+       h, hu, hv: ℝ[m, n] = q[0], q[1], q[2]
+       u, v: ℝ[m, n] = hu / h, hv / h
+       c: ℝ[m, n] = sqrt(g * h)
+       ax: ℝ[m, n] = face_speed(abs(u) + c, 0)
+       ay: ℝ[m, n] = face_speed(abs(v) + c, 1)
+       pressure: ℝ[m, n] = 0.5 * g * h * h
+       dh, dhu, dhv: ℝ[m, n] = divergence(h, hu, hv, ax, ay, dx, dy), divergence(
+           hu, hu * u + pressure, hv * u, ax, ay, dx, dy), divergence(
+           hv, hu * v, hv * v + pressure, ax, ay, dx, dy)
+       return [dh, dhu, dhv]
 
 On a periodic grid, summing a flux difference over all cells cancels every
 face contribution with its neighbour's. This explains discrete conservation
@@ -328,6 +343,15 @@ first order.
 
 ``q1,q2`` are internal states; ``q_next`` is the completed update. Each
 ``rhs`` call recomputes both directional fluxes from its own stage state.
+
+
+.. code-block:: text
+
+   def rk3_step(q: ℝ[3, m, n], g: ℝ, dx: ℝ, dy: ℝ, Δt: ℝ): ℝ[3, m, n]:
+       q1: ℝ[3, m, n] = q + Δt * rhs(q, g, dx, dy)
+       q2: ℝ[3, m, n] = 0.75 * q + 0.25 * (q1 + Δt * rhs(q1, g, dx, dy))
+       q_next: ℝ[3, m, n] = q / 3.0 + (2.0 / 3.0) * (q2 + Δt * rhs(q2, g, dx, dy))
+       return q_next
 
 Choosing a time step
 ~~~~~~~~~~~~~~~~~~~~
@@ -396,28 +420,26 @@ The nested for-expressions build ``bump``; ``zero`` initializes both momenta
 at rest.
 
 
+
+.. code-block:: text
+
+   def initial_state(Nx: ℕ, Ny: ℕ, H: ℝ, amplitude: ℝ): ℝ[3, Nx, Ny]:
+       x: ℝ[Nx] = for i:ℕ(Nx) -> (i + 0.5) / Nx
+       y: ℝ[Ny] = for j:ℕ(Ny) -> (j + 0.5) / Ny
+       pi: ℝ = 3.141592653589793
+       bump: ℝ[Nx, Ny] = for i:ℕ(Nx) -> for j:ℕ(Ny) -> exp(
+           (cos(2 * pi * (x[i] - 0.5)) + cos(2 * pi * (y[j] - 0.5)) - 2.0) / 0.12)
+       h: ℝ[Nx, Ny] = H + amplitude * bump
+       zero: ℝ[Nx, Ny] = 0.0 * h
+       return [h, zero, zero]
+
 The positive bump adds water relative to the uniform reference depth. Its
 spatial mean is not zero, so the mean initial depth is greater than
 :math:`H`. Conservation preserves this initial mean; it does not force the
 mean to return to the reference depth.
 
-Running and interpreting the example
-------------------------------------
-
-From the repository root, after installing Physika, run
-
-.. code-block:: bash
-
-   physika tutorials/shallow_water_rk3.phyk
-
-To inspect the generated PyTorch without executing the simulation, use
-
-.. code-block:: bash
-
-   physika tutorials/shallow_water_rk3.phyk --print-code
-
-If copying the complete listing below into another directory, save it as
-``shallow_water_rk3.phyk`` and pass that path to ``physika`` instead.
+Interpreting the example
+------------------------
 
 The globals ``Nx`` and ``Ny`` set the cell counts, ``H`` the reference depth,
 ``g`` gravity, ``dx`` and ``dy`` the cell widths, and ``Δt`` the time step.
@@ -429,6 +451,22 @@ simulation time :math:`t_{\mathrm{end}}` is
 .. math::
 
    t_{\mathrm{end}}=40\Delta t=0.12.
+
+.. code-block:: text
+
+   Nx: ℕ = 24
+   Ny: ℕ = 24
+   H, g: ℝ = 1.0, 1.0
+   dx, dy: ℝ = 1.0 / Nx, 1.0 / Ny
+   # Fixed step for this small bump. The 2D Courant number is
+   # Δt * (max(|u| + c) / dx + max(|v| + c) / dy), with maxima over cells.
+   # Check it and h > 0 at every stage when changing the setup; neither is enforced here.
+   Δt: ℝ = 0.003
+   steps: ℕ = 40
+   initial: ℝ[3, Nx, Ny] = initial_state(Nx, Ny, H, 0.05)
+   final: ℝ[3, Nx, Ny] = initial
+   for step:ℕ(steps):
+       final = rk3_step(final, g, dx, dy, Δt)
 
 The only scalar diagnostic printed by this program is
 ``mean_depth_change``. In mathematical notation, call it
@@ -502,7 +540,7 @@ numerical tests are not a claim of full formal verification.
 Full code
 ---------
 
-The following is the standalone ``tutorials/shallow_water_rk3.phyk`` program.
+The complete implementation is shown below.
 
 .. code-block:: text
 
@@ -527,8 +565,8 @@ The following is the standalone ``tutorials/shallow_water_rk3.phyk`` program.
                   ax: ℝ[m, n], ay: ℝ[m, n], dx: ℝ, dy: ℝ): ℝ[m, n]:
        F: ℝ[m, n] = 0.5 * (f + roll(f, -1, 0))
        G: ℝ[m, n] = 0.5 * (flux_y + roll(flux_y, -1, 1))
-       F = F - 0.5 * ax * (roll(w, -1, 0) - w)
-       G = G - 0.5 * ay * (roll(w, -1, 1) - w)
+       F: ℝ[m, n] = F - 0.5 * ax * (roll(w, -1, 0) - w)
+       G: ℝ[m, n] = G - 0.5 * ay * (roll(w, -1, 1) - w)
        return -(F - roll(F, 1, 0)) / dx - (G - roll(G, 1, 1)) / dy
 
    # q_t = L(q), with physical fluxes
@@ -537,18 +575,15 @@ The following is the standalone ``tutorials/shallow_water_rk3.phyk`` program.
    # Recompute velocities and gravity-wave speed c from this stage's entire state.
    # The divisions and square root require h > 0; there is no dry-bed treatment.
    def rhs(q: ℝ[3, m, n], g: ℝ, dx: ℝ, dy: ℝ): ℝ[3, m, n]:
-       h: ℝ[m, n] = q[0]
-       hu: ℝ[m, n] = q[1]
-       hv: ℝ[m, n] = q[2]
-       u: ℝ[m, n] = hu / h
-       v: ℝ[m, n] = hv / h
+       h, hu, hv: ℝ[m, n] = q[0], q[1], q[2]
+       u, v: ℝ[m, n] = hu / h, hv / h
        c: ℝ[m, n] = sqrt(g * h)
        ax: ℝ[m, n] = face_speed(abs(u) + c, 0)
        ay: ℝ[m, n] = face_speed(abs(v) + c, 1)
        pressure: ℝ[m, n] = 0.5 * g * h * h
-       dh: ℝ[m, n] = divergence(h, hu, hv, ax, ay, dx, dy)
-       dhu: ℝ[m, n] = divergence(hu, hu * u + pressure, hv * u, ax, ay, dx, dy)
-       dhv: ℝ[m, n] = divergence(hv, hu * v, hv * v + pressure, ax, ay, dx, dy)
+       dh, dhu, dhv: ℝ[m, n] = divergence(h, hu, hv, ax, ay, dx, dy), divergence(
+           hu, hu * u + pressure, hv * u, ax, ay, dx, dy), divergence(
+           hv, hu * v, hv * v + pressure, ax, ay, dx, dy)
        return [dh, dhu, dhv]
 
    # SSPRK(3,3): three coupled stages, third-order in time for the semidiscrete ODE.
@@ -571,10 +606,8 @@ The following is the standalone ``tutorials/shallow_water_rk3.phyk`` program.
 
    Nx: ℕ = 24
    Ny: ℕ = 24
-   H: ℝ = 1.0
-   g: ℝ = 1.0
-   dx: ℝ = 1.0 / Nx
-   dy: ℝ = 1.0 / Ny
+   H, g: ℝ = 1.0, 1.0
+   dx, dy: ℝ = 1.0 / Nx, 1.0 / Ny
    # Fixed step for this small bump. The 2D Courant number is
    # Δt * (max(|u| + c) / dx + max(|v| + c) / dy), with maxima over cells.
    # Check it and h > 0 at every stage when changing the setup; neither is enforced here.

@@ -18,18 +18,13 @@ def divergence(w, f, flux_y, ax, ay, dx, dy):
     return (((-(F - torch.roll(F, 1, 0))) / dx) - ((G - torch.roll(G, 1, 1)) / dy))
 
 def rhs(q, g, dx, dy):
-    h = q[int(0)]
-    hu = q[int(1)]
-    hv = q[int(2)]
-    u = (hu / h)
-    v = (hv / h)
+    h, hu, hv = q[int(0)], q[int(1)], q[int(2)]
+    u, v = (hu / h), (hv / h)
     c = torch.sqrt((g * h) if isinstance((g * h), torch.Tensor) else torch.tensor(float((g * h))))
     ax = face_speed((torch.abs(u if isinstance(u, torch.Tensor) else torch.tensor(float(u))) + c), 0)
     ay = face_speed((torch.abs(v if isinstance(v, torch.Tensor) else torch.tensor(float(v))) + c), 1)
     pressure = (((0.5 * g) * h) * h)
-    dh = divergence(h, hu, hv, ax, ay, dx, dy)
-    dhu = divergence(hu, ((hu * u) + pressure), (hv * u), ax, ay, dx, dy)
-    dhv = divergence(hv, (hu * v), ((hv * v) + pressure), ax, ay, dx, dy)
+    dh, dhu, dhv = divergence(h, hu, hv, ax, ay, dx, dy), divergence(hu, ((hu * u) + pressure), (hv * u), ax, ay, dx, dy), divergence(hv, (hu * v), ((hv * v) + pressure), ax, ay, dx, dy)
     return torch.stack([torch.as_tensor(dh), torch.as_tensor(dhu), torch.as_tensor(dhv)])
 
 def rk3_step(q, g, dx, dy, Δt):
@@ -50,10 +45,8 @@ def initial_state(Nx, Ny, H, amplitude):
 # === Program ===
 Nx = 24
 Ny = 24
-H = 1.0
-g = 1.0
-dx = (1.0 / Nx)
-dy = (1.0 / Ny)
+H, g = 1.0, 1.0
+dx, dy = (1.0 / Nx), (1.0 / Ny)
 Δt = 0.003
 steps = 40
 initial = initial_state(Nx, Ny, H, 0.05)

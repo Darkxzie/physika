@@ -19,8 +19,8 @@ def divergence(w: ℝ[m, n], f: ℝ[m, n], flux_y: ℝ[m, n],
                ax: ℝ[m, n], ay: ℝ[m, n], dx: ℝ, dy: ℝ): ℝ[m, n]:
     F: ℝ[m, n] = 0.5 * (f + roll(f, -1, 0))
     G: ℝ[m, n] = 0.5 * (flux_y + roll(flux_y, -1, 1))
-    F = F - 0.5 * ax * (roll(w, -1, 0) - w)
-    G = G - 0.5 * ay * (roll(w, -1, 1) - w)
+    F: ℝ[m, n] = F - 0.5 * ax * (roll(w, -1, 0) - w)
+    G: ℝ[m, n] = G - 0.5 * ay * (roll(w, -1, 1) - w)
     return -(F - roll(F, 1, 0)) / dx - (G - roll(G, 1, 1)) / dy
 
 # q_t = L(q), with physical fluxes
@@ -29,18 +29,15 @@ def divergence(w: ℝ[m, n], f: ℝ[m, n], flux_y: ℝ[m, n],
 # Recompute velocities and gravity-wave speed c from this stage's entire state.
 # The divisions and square root require h > 0; there is no dry-bed treatment.
 def rhs(q: ℝ[3, m, n], g: ℝ, dx: ℝ, dy: ℝ): ℝ[3, m, n]:
-    h: ℝ[m, n] = q[0]
-    hu: ℝ[m, n] = q[1]
-    hv: ℝ[m, n] = q[2]
-    u: ℝ[m, n] = hu / h
-    v: ℝ[m, n] = hv / h
+    h, hu, hv: ℝ[m, n] = q[0], q[1], q[2]
+    u, v: ℝ[m, n] = hu / h, hv / h
     c: ℝ[m, n] = sqrt(g * h)
     ax: ℝ[m, n] = face_speed(abs(u) + c, 0)
     ay: ℝ[m, n] = face_speed(abs(v) + c, 1)
     pressure: ℝ[m, n] = 0.5 * g * h * h
-    dh: ℝ[m, n] = divergence(h, hu, hv, ax, ay, dx, dy)
-    dhu: ℝ[m, n] = divergence(hu, hu * u + pressure, hv * u, ax, ay, dx, dy)
-    dhv: ℝ[m, n] = divergence(hv, hu * v, hv * v + pressure, ax, ay, dx, dy)
+    dh, dhu, dhv: ℝ[m, n] = divergence(h, hu, hv, ax, ay, dx, dy), divergence(
+        hu, hu * u + pressure, hv * u, ax, ay, dx, dy), divergence(
+        hv, hu * v, hv * v + pressure, ax, ay, dx, dy)
     return [dh, dhu, dhv]
 
 # SSPRK(3,3): three coupled stages, third-order in time for the semidiscrete ODE.
@@ -63,10 +60,8 @@ def initial_state(Nx: ℕ, Ny: ℕ, H: ℝ, amplitude: ℝ): ℝ[3, Nx, Ny]:
 
 Nx: ℕ = 24
 Ny: ℕ = 24
-H: ℝ = 1.0
-g: ℝ = 1.0
-dx: ℝ = 1.0 / Nx
-dy: ℝ = 1.0 / Ny
+H, g: ℝ = 1.0, 1.0
+dx, dy: ℝ = 1.0 / Nx, 1.0 / Ny
 # Fixed step for this small bump. The 2D Courant number is
 # Δt * (max(|u| + c) / dx + max(|v| + c) / dy), with maxima over cells.
 # Check it and h > 0 at every stage when changing the setup; neither is enforced here.
