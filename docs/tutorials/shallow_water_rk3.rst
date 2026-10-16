@@ -60,11 +60,12 @@ With the subscript “phys” denoting dimensional quantities, the conversion is
 
 .. math::
 
-   x_{\mathrm{phys}}=L_*x, \quad y_{\mathrm{phys}}=L_*y,
-   \quad t_{\mathrm{phys}}=T_*t, \quad
-   h_{\mathrm{phys}}=D_*h, \quad
-   u_{\mathrm{phys}}=U_*u, \quad v_{\mathrm{phys}}=U_*v,
-   \qquad g=\frac{g_*D_*}{U_*^2}=1.
+   \begin{aligned}
+   x_{\mathrm{phys}} &= L_*x, & y_{\mathrm{phys}} &= L_*y,\\
+   t_{\mathrm{phys}} &= T_*t, & h_{\mathrm{phys}} &= D_*h,\\
+   u_{\mathrm{phys}} &= U_*u, & v_{\mathrm{phys}} &= U_*v,\\
+   g &= \frac{g_*D_*}{U_*^2}=1.
+   \end{aligned}
 
 Depth, reference depth, and surface displacement share the scale :math:`D_*`.
 Setting :math:`H=1` does not imply a deep ocean: horizontal and vertical scales
@@ -127,10 +128,11 @@ cells along :math:`y`. Their widths and centre coordinates are
 
 .. math::
 
-   \Delta x=\frac1{N_x}, \qquad \Delta y=\frac1{N_y}, \qquad
-   x_i=(i+\tfrac12)\Delta x, \qquad y_j=(j+\tfrac12)\Delta y,
-   \qquad
-   i=0,\ldots,N_x-1, \quad j=0,\ldots,N_y-1.
+   \begin{aligned}
+   \Delta x &= \frac1{N_x}, & \Delta y &= \frac1{N_y},\\
+   x_i &= (i+\tfrac12)\Delta x, & y_j &= (j+\tfrac12)\Delta y,\\
+   i &= 0,\ldots,N_x-1, & j &= 0,\ldots,N_y-1.
+   \end{aligned}
 
 Indices :math:`i,j` label cells. The cell :math:`C_{ij}`, centred at
 :math:`(x_i,y_j)`, has area :math:`\Delta x\Delta y` and average state
@@ -312,7 +314,8 @@ Advancing time with SSPRK3
 --------------------------
 
 A forward Euler step adds the current rate of change multiplied by the time
-step. SSPRK3 combines three such evaluations, allowing each new state to
+step. The `SSPRK3 method of Gottlieb and Shu <https://doi.org/10.1090/S0025-5718-98-00913-2>`_
+combines three such evaluations, allowing each new state to
 change the velocities, pressure, and wave speeds used by the next evaluation.
 Keeping all three conserved components together avoids using stale velocities.
 
@@ -356,40 +359,43 @@ first order.
 Choosing a time step
 ~~~~~~~~~~~~~~~~~~~~
 
-The Courant–Friedrichs–Lewy (CFL) idea compares how far information can travel
-in one step with the size of a cell. In two dimensions both directional
-contributions matter. Define a dimensionless speed budget
-:math:`\mathcal C(\mathbf q)` by
+The Courant–Friedrichs–Lewy (CFL) condition compares how far a disturbance
+can travel in one time step with the size of a cell. For shallow water,
+gravity waves travel relative to the fluid at speed
 
 .. math::
 
-   \mathcal C(\mathbf q)=\Delta t\left(
-     \frac{\max_{i,j}(|u_{ij}|+c_{ij})}{\Delta x}
-     +\frac{\max_{i,j}(|v_{ij}|+c_{ij})}{\Delta y}\right).
+   \boxed{c=\sqrt{gh}},
 
-Each maximum ranges over every grid cell of the state being checked. A
-conservative target for this small demonstration is
-
-.. math::
-
-   \mathcal C(\mathbf q)\leq 0.2.
-
-This is a chosen safety budget, not a universal sharp stability limit. The
-standalone program uses a fixed time step; it does not calculate this budget
-at runtime or adapt the step. When changing parameters, check the budget and
-positive, finite depth at every RHS input (the old state and both internal
-stages), as well as the completed state.
-
-For the uniform reference state at rest, the program's parameters give
+where :math:`g` is gravitational acceleration and :math:`h` is the local
+total water depth. The flow also carries the disturbance along. For the
+three-component shallow-water system used here, the characteristic speeds
+in the x and y directions are, respectively,
 
 .. math::
 
-   N_x=N_y=24, \quad H=g=1, \quad \Delta t=0.003,
-   \qquad c=1, \qquad
-   \mathcal C=0.003(24+24)=0.144.
+   u-c,\quad u,\quad u+c,
+   \qquad
+   v-c,\quad v,\quad v+c.
 
-The bump and its evolving velocities increase this budget. Recheck it when
-changing the grid, amplitude, gravity, or timestep.
+Here :math:`u` and :math:`v` are the depth-averaged flow velocities. The
+middle speed describes transport of transverse momentum; the other two
+include gravity-wave motion. Taking the largest absolute speed gives
+
+.. math::
+
+   \boxed{s^x=|u|+\sqrt{gh}}, \qquad
+   \boxed{s^y=|v|+\sqrt{gh}}.
+
+The `shallow-water reference <https://www.clawpack.org/riemann_book/html/Shallow_water.html>`_
+explains the gravity-wave speeds. In ``rhs``, the following lines compute
+these speed bounds and select the larger bound on each side of a cell face:
+
+.. code-block:: text
+
+   c: ℝ[m, n] = sqrt(g * h)
+   ax: ℝ[m, n] = face_speed(abs(u) + c, 0)
+   ay: ℝ[m, n] = face_speed(abs(v) + c, 1)
 
 Starting from a smooth periodic bump
 ------------------------------------
@@ -403,11 +409,21 @@ The initial condition is
 
    B(x,y)=\exp\!\left(
      \frac{\cos(2\pi(x-x_c))+\cos(2\pi(y-y_c))-2}{\beta}
-   \right),
-   \qquad
-   h(x,y,0)=H+A B(x,y), \qquad u(x,y,0)=v(x,y,0)=0,
+   \right).
 
-   x_c=y_c=0.5, \qquad \beta=0.12, \qquad A=0.05, \qquad H=1.
+.. math::
+
+   \begin{aligned}
+   h(x,y,0) &= H+A B(x,y),\\
+   u(x,y,0) &= v(x,y,0)=0.
+   \end{aligned}
+
+.. math::
+
+   \begin{aligned}
+   x_c=y_c &= 0.5, & \beta &= 0.12,\\
+   A &= 0.05, & H &= 1.
+   \end{aligned}
 
 The shape :math:`B` peaks at one at its centre :math:`(x_c,y_c)`.
 :math:`A` (``amplitude``) sets the peak displacement; smaller positive
@@ -621,3 +637,9 @@ The complete implementation is shown below.
    # Periodic flux cancellation conserves mean depth, up to floating-point roundoff.
    mean_depth_change: ℝ = mean(final[0] - initial[0])
    mean_depth_change
+
+References
+----------
+
+- `Shallow-water equations and wave speeds — Clawpack <https://www.clawpack.org/riemann_book/html/Shallow_water.html>`_
+- `Total variation diminishing Runge–Kutta schemes — Gottlieb and Shu (1998) <https://doi.org/10.1090/S0025-5718-98-00913-2>`_
