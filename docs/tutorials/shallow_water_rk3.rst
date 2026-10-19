@@ -511,6 +511,23 @@ should drive outward flow and gravity waves. Numerical diffusion smooths
 those waves, and periodic wrapping matters once waves reach an edge. These
 are qualitative expectations, not measured snapshots supplied by this page.
 
+Visualising the results
+-----------------------
+
+The plots below show how the small water bump changes over time. The colours
+show whether the surface is above or below the reference depth. The arrows in
+the 2D plot show the direction of the water motion. The 3D plot makes the
+spreading wave easier to see. Together, the plots show that the initial bump
+spreads outward and creates horizontal water motion.
+
+.. image:: /_static/images/shallow_water_surface_velocity_4panel_t06.png
+   :alt: Four two-dimensional surface displacement and velocity plots over time
+   :width: 100%
+
+.. image:: /_static/images/shallow_water_surface_3d_4panel_t06.png
+   :alt: Four three-dimensional surface displacement plots over time
+   :width: 100%
+
 Limits and useful checks
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
