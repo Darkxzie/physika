@@ -3,7 +3,7 @@ Two-dimensional shallow water with Runge–Kutta time stepping
 
 What happens when one part of a water surface is higher than the rest?
 Water flows away from the raised area, and waves spread across the surface.
-In this tutorial, we simulate that motion starting from a small, smooth
+In this tutorial, we start from a small, smooth
 bump in otherwise still water.
 
 We use the shallow-water equations, which describe flow when the water is
@@ -16,22 +16,21 @@ We divide a square into small cells, calculate how water and momentum move
 between neighbouring cells, and advance the solution in time using a
 Runge–Kutta method. The square has periodic boundaries: a wave leaving one
 edge returns at the opposite edge. We build the Physika implementation step
-by step below, with the complete program at the end. For installation and
-language basics, see :doc:`intro_to_physika` and :doc:`/install`.
+by step below, with the complete program at the end.
 
 What “shallow water” means
 --------------------------
 
 Each grid cell represents a water column, with velocities averaged over its
-depth. The grid resolves two horizontal directions, not vertical structure.
+depth. The grid resolves only the two horizontal directions.
 Shallow-water theory assumes depth is small relative to horizontal scales and
 pressure is hydrostatic. We use a flat, stationary bed without friction,
-wind, rotation, or external sources.
+wind, rotation, or any other external sources.
 
 Let :math:`x` and :math:`y` be horizontal coordinates and :math:`t` be time.
 The total water depth is :math:`h(x,y,t)`, the constant reference depth is
 :math:`H`, and :math:`\eta(x,y,t)` is the surface displacement from that
-reference level:
+reference level :math:`H`:
 
 .. math::
 
@@ -158,8 +157,8 @@ Barred fluxes are averages along cell faces; :math:`d/dt` is a time derivative.
 Faces :math:`i+1/2,i-1/2` are right/left, and :math:`j+1/2,j-1/2` are top/bottom.
 The minus signs give incoming minus outgoing transport.
 
-Our numerical state :math:`\mathbf q_{ij}` approximates this cell average;
-we drop its bar below. We approximate face fluxes using constant states in
+Our numerical state :math:`\mathbf q_{ij}` approximates this cell average.
+We drop its bar below. We approximate face fluxes using constant states in
 each cell, giving first-order spatial accuracy.
 
 Array axes and periodic neighbours
@@ -283,7 +282,7 @@ Shifting those fluxes backwards supplies the left and bottom faces.
        G: ℝ[m, n] = G - 0.5 * ay * (roll(w, -1, 1) - w)
        return -(F - roll(F, 1, 0)) / dx - (G - roll(G, 1, 1)) / dy
 
-The function ``rhs`` means “right-hand side” and implements
+The function ``rhs`` implements
 :math:`\mathcal L`. It recovers velocities from the input state, computes wave
 speeds and pressure, then calls ``divergence`` for depth and both momenta.
 The returned ``dh``, ``dhu``, and ``dhv`` are time derivatives, not yet changes
@@ -497,19 +496,8 @@ The only scalar diagnostic printed by this program is
 The superscripts “initial” and “final” identify the depth components of those
 two arrays; the sums include every cell. Since all cells have equal area,
 this arithmetic mean measures the change in mean depth. It should be near
-zero up to floating-point error because of the shared periodic fluxes. A
-CPU run with the default single-precision tensors gave approximately
-``4.24e-7``; the exact roundoff depends on the execution environment. This
-small drift checks conservation, not the accuracy of wave propagation.
-The program itself does not produce a plot or a stage-by-stage stability
-report; intermediate states were checked separately during validation.
+zero up to floating-point error because of the shared periodic fluxes.
 
-To interpret the state in your own diagnostics, ``final[0]`` is depth,
-``final[0] - H`` is surface displacement, and the two momentum components
-divided by ``final[0]`` recover velocities. A smooth surface disturbance
-should drive outward flow and gravity waves. Numerical diffusion smooths
-those waves, and periodic wrapping matters once waves reach an edge. These
-are qualitative expectations, not measured snapshots supplied by this page.
 
 Visualising the results
 -----------------------
@@ -527,48 +515,6 @@ spreads outward and creates horizontal water motion.
 .. image:: /_static/images/shallow_water_surface_3d_4panel_t06.png
    :alt: Four three-dimensional surface displacement plots over time
    :width: 100%
-
-Limits and useful checks
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-* The spatial method is deliberately diffusive. Third-order time stepping
-  does not make the spatial approximation third order. Resolve the bump on
-  progressively finer grids and reduce the time step consistently before
-  trusting fine details.
-* Division by depth and its square root require positive depth. There is no
-  dry-cell treatment, positivity repair, or wetting-and-drying model here.
-  Check depth and finite values at internal stages as well as completed steps.
-* Monitor the two-dimensional CFL budget when changing the setup. A fixed
-  time step that suits one grid or amplitude may fail for another.
-* Conservation of mean depth alone cannot establish accuracy. Uniform water
-  at rest should remain unchanged; periodic flux cancellation should also
-  conserve both total momentum components up to roundoff. Grid and time-step
-  comparisons test different errors from these conservation checks.
-* This is a flat-bed, depth-averaged gravity-wave demonstration, not a resolved
-  three-dimensional simulation, a model of breaking waves, or a reproduction
-  of a particular paper's numerical scheme.
-
-Checking the implementation
----------------------------
-
-The implementation was checked using separate numerical tests during
-development; those test files are not included in this tutorial-only change.
-The checks compiled the Physika source and exercised its generated functions.
-They checked uniform water at rest and in motion, conservation of water and
-both momentum components, symmetry when swapping x and y, and pressure-driven
-acceleration. They also inspect every Runge–Kutta stage of the default example
-for positive finite depth and the CFL budget. In the checked run, the maximum
-budget was approximately ``0.1471``, below the chosen ``0.2`` target.
-
-At a fixed grid, timestep refinement showed approximately third-order
-convergence against an exact semidiscrete shear solution and between
-nonlinear runs. Keeping the grid fixed isolates temporal error; spatial
-accuracy remains first order.
-
-On this checkout, the CLI reports that some constructs fall back from CIC
-verification to the standard type checker and code generator, then reports
-``No type errors found``. The example runs through that supported path; these
-numerical tests are not a claim of full formal verification.
 
 Full code
 ---------
