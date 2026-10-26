@@ -36,6 +36,9 @@ reference level :math:`H`:
 
    h = H + \eta, \qquad \eta = h-H.
 
+This is the standard relation between total depth and surface displacement in
+the shallow-water model [Clawpack]_.
+
 Thus ``h`` is not just the bump height. The bump is the smaller displacement
 :math:`\eta`. The horizontal depth-averaged velocities are :math:`u(x,y,t)`
 in the positive :math:`x` direction and :math:`v(x,y,t)` in the positive
@@ -153,6 +156,8 @@ Integrating the PDE over the cell gives the flux balance at its four faces:
     -\frac{\overline{\mathbf G}_{i,j+1/2}
                   -\overline{\mathbf G}_{i,j-1/2}}{\Delta y}.
 
+This is the standard finite-volume balance for a cell average [LeVeque2002]_.
+
 The barred :math:`\mathbf F` terms are average fluxes through the right and
 left faces; the barred :math:`\mathbf G` terms are average fluxes through the
 top and bottom faces. The first fraction measures the net x-direction flow,
@@ -250,6 +255,9 @@ inside a cell. The vector Rusanov fluxes are
                           \mathbf G(\mathbf q_{i,j+1})\right]
     -\tfrac12a^y_{i,j+1/2}(\mathbf q_{i,j+1}-\mathbf q_{ij}).
 
+This local Lax--Friedrichs, or Rusanov, flux is a standard finite-volume
+approximation [LeVeque2002]_.
+
 Each face uses its two adjacent cell states and the same speed bound for
 all three conserved components.
 
@@ -269,6 +277,9 @@ change:
                    -\widehat{\mathbf F}_{i-1/2,j}}{\Delta x}
     -\frac{\widehat{\mathbf G}_{i,j+1/2}
                    -\widehat{\mathbf G}_{i,j-1/2}}{\Delta y}.
+
+This method-of-lines form is obtained after spatial discretization, while time
+remains continuous [LeVeque2002]_.
 
 This is an ODE (ordinary differential equation) for the array values: space
 has been discretized, but time is still continuous. The function
@@ -623,3 +634,7 @@ References
 .. [GottliebShu1998] S. Gottlieb and C.-W. Shu. “Total variation diminishing
    Runge–Kutta schemes.” *Mathematics of Computation*, 67(221), 73–85, 1998.
    DOI: https://doi.org/10.1090/S0025-5718-98-00913-2
+
+.. [LeVeque2002] Randall J. LeVeque. *Finite Volume Methods for Hyperbolic
+   Problems*. Cambridge University Press, 2002.
+   DOI: https://doi.org/10.1017/CBO9780511791253
