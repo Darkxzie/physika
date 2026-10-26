@@ -92,7 +92,7 @@ conserved on this periodic domain.
 Let :math:`\mathbf F` be the vector of physical fluxes in the positive
 :math:`x` direction and :math:`\mathbf G` the corresponding vector in the
 positive :math:`y` direction. A flux measures transport across a face per unit
-face length and per unit time. The equations are
+face length and per unit time. The equations are [Clawpack]_
 
 .. math::
 
@@ -106,8 +106,8 @@ face length and per unit time. The equations are
    \mathbf G(\mathbf q)=
    \begin{pmatrix}hv\\huv\\hv^2+\tfrac12gh^2\end{pmatrix}.
 
-Here :math:`\partial` denotes a partial derivative and :math:`\mathbf 0` a
-zero vector. The rows conserve water, x momentum, and y momentum respectively.
+Here :math:`\mathbf 0` is a zero vector. The rows conserve water, x momentum,
+and y momentum respectively.
 The hydrostatic contribution is
 
 .. math::
@@ -141,9 +141,9 @@ Indices :math:`i,j` label cells. The cell :math:`C_{ij}`, centred at
    \overline{\mathbf q}_{ij}(t)
    =\frac1{\Delta x\Delta y}\int_{C_{ij}}\mathbf q(x,y,t)\,dx\,dy.
 
-The bar denotes an average over the cell; the integral sums the field over
-its area. Integrating the PDE over the cell turns spatial derivatives into
-boundary fluxes:
+The symbol :math:`\overline{\mathbf q}_{ij}`, read “q-bar,” is the average
+state in cell :math:`C_{ij}`. The integral adds the state over that cell.
+Integrating the PDE over the cell gives the flux balance at its four faces:
 
 .. math::
 
@@ -153,12 +153,14 @@ boundary fluxes:
     -\frac{\overline{\mathbf G}_{i,j+1/2}
                   -\overline{\mathbf G}_{i,j-1/2}}{\Delta y}.
 
-Barred fluxes are averages along cell faces; :math:`d/dt` is a time derivative.
-Faces :math:`i+1/2,i-1/2` are right/left, and :math:`j+1/2,j-1/2` are top/bottom.
-The minus signs give incoming minus outgoing transport.
+The barred :math:`\mathbf F` terms are average fluxes through the right and
+left faces; the barred :math:`\mathbf G` terms are average fluxes through the
+top and bottom faces. The first fraction measures the net x-direction flow,
+and the second measures the net y-direction flow. The minus signs mean that
+outgoing flow reduces the cell state.
 
-Our numerical state :math:`\mathbf q_{ij}` approximates this cell average.
-We drop its bar below. We approximate face fluxes using constant states in
+Our numerical state :math:`\mathbf q_{ij}` approximates this q-bar value.
+We drop the bar below. We approximate face fluxes using constant states in
 each cell, giving first-order spatial accuracy.
 
 Array axes and periodic neighbours
@@ -177,6 +179,11 @@ component when plotting it with image software that puts rows vertically.
 ``roll(w, 1, 0)`` supplies the previous x-cell value. Axis 1 does the same in
 y. Here ``w`` is any one component field. Algebraically,
 
+.. code-block:: text
+
+   next_x: ℝ[m, n] = roll(w, -1, 0)
+   next_y: ℝ[m, n] = roll(w, -1, 1)
+
 .. math::
 
    [\operatorname{roll}(w,-1,0)]_{ij}=w_{i+1,j}, \qquad
@@ -193,7 +200,7 @@ A shared face flux makes the amount leaving one cell enter its neighbour.
 Rusanov averages adjacent physical fluxes and damps their state jump. This
 adds numerical diffusion, not physical viscosity.
 
-Gravity waves move relative to the fluid with speed :math:`c`. The nonnegative
+Gravity waves move relative to the fluid with speed :math:`c` [Clawpack]_. The non-negative
 cell speed bounds :math:`s^x` and :math:`s^y` combine advection and waves:
 
 .. math::
@@ -313,7 +320,7 @@ Advancing time with SSPRK3
 --------------------------
 
 A forward Euler step adds the current rate of change multiplied by the time
-step. The `SSPRK3 method of Gottlieb and Shu <https://doi.org/10.1090/S0025-5718-98-00913-2>`_
+step. The SSPRK3 method [GottliebShu1998]_
 combines three such evaluations, allowing each new state to
 change the velocities, pressure, and wave speeds used by the next evaluation.
 Keeping all three conserved components together avoids using stale velocities.
@@ -386,8 +393,8 @@ include gravity-wave motion. Taking the largest absolute speed gives
    \boxed{s^x=|u|+\sqrt{gh}}, \qquad
    \boxed{s^y=|v|+\sqrt{gh}}.
 
-The `shallow-water reference <https://www.clawpack.org/riemann_book/html/Shallow_water.html>`_
-explains the gravity-wave speeds. In ``rhs``, the following lines compute
+The shallow-water reference [Clawpack]_ explains the gravity-wave speeds. In
+``rhs``, the following lines compute
 these speed bounds and select the larger bound on each side of a cell face:
 
 .. code-block:: text
@@ -508,13 +515,19 @@ the 2D plot show the direction of the water motion. The 3D plot makes the
 spreading wave easier to see. Together, the plots show that the initial bump
 spreads outward and creates horizontal water motion.
 
-.. image:: /_static/images/shallow_water_surface_velocity_4panel_t06.png
+.. figure:: /_static/images/shallow_water_surface_velocity_4panel_t06.png
    :alt: Four two-dimensional surface displacement and velocity plots over time
    :width: 100%
+   :align: center
 
-.. image:: /_static/images/shallow_water_surface_3d_4panel_t06.png
+   Figure 1: Surface displacement and horizontal velocity over time.
+
+.. figure:: /_static/images/shallow_water_surface_3d_4panel_t06.png
    :alt: Four three-dimensional surface displacement plots over time
    :width: 100%
+   :align: center
+
+   Figure 2: Three-dimensional surface displacement over time.
 
 Full code
 ---------
@@ -604,5 +617,9 @@ The complete implementation is shown below.
 References
 ----------
 
-- `Shallow-water equations and wave speeds — Clawpack <https://www.clawpack.org/riemann_book/html/Shallow_water.html>`_
-- `Total variation diminishing Runge–Kutta schemes — Gottlieb and Shu (1998) <https://doi.org/10.1090/S0025-5718-98-00913-2>`_
+.. [Clawpack] R. J. LeVeque. “The shallow water equations.”
+   *Clawpack Riemann book*. https://www.clawpack.org/riemann_book/html/Shallow_water.html
+
+.. [GottliebShu1998] S. Gottlieb and C.-W. Shu. “Total variation diminishing
+   Runge–Kutta schemes.” *Mathematics of Computation*, 67(221), 73–85, 1998.
+   DOI: https://doi.org/10.1090/S0025-5718-98-00913-2
