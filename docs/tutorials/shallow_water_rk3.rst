@@ -1,7 +1,7 @@
 Two-dimensional shallow water with Runge–Kutta time stepping
 ============================================================
 
-What happens when one part of a water surface is higher than the rest?
+What happens when one part of the water surface is higher than the rest?
 Water flows away from the raised area, and waves spread across the surface.
 In this tutorial, we start from a small, smooth
 bump in otherwise still water.
@@ -12,8 +12,8 @@ of tracking motion at every depth, we track the water depth and the average
 horizontal flow in two directions. This makes the model simpler than a full
 three-dimensional simulation.
 
-We divide a square into small cells, calculate how water and momentum move
-between neighbouring cells, and advance the solution in time using a
+We divide the square domain into equal-sized cells, calculate how water and
+momentum move between neighbouring cells, and advance the solution in time using a
 Runge–Kutta method. The square has periodic boundaries: a wave leaving one
 edge returns at the opposite edge. We build the Physika implementation step
 by step below, with the complete program at the end.
@@ -22,15 +22,16 @@ What “shallow water” means
 --------------------------
 
 Each grid cell represents a water column, with velocities averaged over its
-depth. The grid resolves only the two horizontal directions.
+depth. The grid only resolves the two horizontal directions and does not
+resolve vertical motion.
 Shallow-water theory assumes depth is small relative to horizontal scales and
 pressure is hydrostatic. We use a flat, stationary bed without friction,
 wind, rotation, or any other external sources.
 
 Let :math:`x` and :math:`y` be horizontal coordinates and :math:`t` be time.
 The total water depth is :math:`h(x,y,t)`, the constant reference depth is
-:math:`H`, and :math:`\eta(x,y,t)` is the surface displacement from that
-reference level :math:`H`:
+:math:`H`, and :math:`\eta(x,y,t)` is the surface displacement: the vertical
+distance of the water surface above or below that reference level :math:`H`:
 
 .. math::
 
@@ -40,10 +41,10 @@ This is the standard relation between total depth and surface displacement in
 the shallow-water model [Clawpack]_.
 
 Thus ``h`` is not just the bump height. The bump is the smaller displacement
-:math:`\eta`. The horizontal depth-averaged velocities are :math:`u(x,y,t)`
-in the positive :math:`x` direction and :math:`v(x,y,t)` in the positive
-:math:`y` direction. The positive parameter :math:`g` is gravity in the units
-used by the simulation.
+:math:`\eta`. The two horizontal depth-averaged velocity components are
+:math:`u(x,y,t)` in the positive :math:`x` direction and :math:`v(x,y,t)` in
+the positive :math:`y` direction. The positive parameter :math:`g` is gravity
+in the units used by the simulation.
 
 Units and scales
 ~~~~~~~~~~~~~~~~
@@ -70,14 +71,16 @@ With the subscript “phys” denoting dimensional quantities, the conversion is
    \end{aligned}
 
 Depth, reference depth, and surface displacement share the scale :math:`D_*`.
-Setting :math:`H=1` does not imply a deep ocean: horizontal and vertical scales
-differ. Choose :math:`D_*/L_*` small, with the bump also much wider than the depth.
+Setting the reference depth to :math:`H=1` (one unit) does not imply a deep
+ocean: horizontal and vertical scales differ. Choose :math:`D_*/L_*` small,
+with the bump also much wider than the depth.
 
 From moving water to conservation laws
 --------------------------------------
 
-Water transports mass and momentum between cells; pressure also transfers
-momentum. We evolve depth and both momentum components together.
+Water transports mass and momentum between cells; pressure transfers momentum
+as well. We evolve the depth and momentum in both horizontal directions
+together.
 
 The *primitive* fields are depth and velocities. The *conserved* state
 :math:`\mathbf q` and the recovery of its primitive fields are
@@ -87,7 +90,8 @@ The *primitive* fields are depth and velocities. The *conserved* state
    \mathbf q = \begin{pmatrix}h\\hu\\hv\end{pmatrix},
    \qquad u=\frac{hu}{h}, \qquad v=\frac{hv}{h}, \qquad h>0.
 
-Here :math:`hu` and :math:`hv` mean products, not extra velocity variables.
+Here :math:`hu` and :math:`hv` mean products, not additional velocity
+variables.
 For constant density they are horizontal momenta per unit horizontal area
 with density divided out. Their integrals, and the integral of depth, are
 conserved on this periodic domain.
@@ -126,7 +130,7 @@ From the PDE to cell averages
 -----------------------------
 
 Divide the unit square into :math:`N_x` cells along :math:`x` and :math:`N_y`
-cells along :math:`y`. Their widths and centre coordinates are
+cells along :math:`y`. Their widths and center coordinates are
 
 .. math::
 
@@ -136,7 +140,7 @@ cells along :math:`y`. Their widths and centre coordinates are
    i &= 0,\ldots,N_x-1, & j &= 0,\ldots,N_y-1.
    \end{aligned}
 
-Indices :math:`i,j` label cells. The cell :math:`C_{ij}`, centred at
+Indices :math:`i,j` label cells. The cell :math:`C_{ij}`, centered at
 :math:`(x_i,y_j)`, has area :math:`\Delta x\Delta y` and average state
 
 .. math::
@@ -165,7 +169,7 @@ and the second measures the net y-direction flow. The minus signs mean that
 outgoing flow reduces the cell state.
 
 Our numerical state :math:`\mathbf q_{ij}` approximates this q-bar value.
-We drop the bar below. We approximate face fluxes using constant states in
+We omit the bar below. We approximate face fluxes using constant states in
 each cell, giving first-order spatial accuracy.
 
 Array axes and periodic neighbours
@@ -180,8 +184,8 @@ Each extracted component is a ``ℝ[m, n]`` array: **axis 0 is x and axis 1
 is y**. These axis numbers apply after selecting ``q[k]``. Transpose a
 component when plotting it with image software that puts rows vertically.
 
-``roll(w, -1, 0)`` places the next x-cell value at each current cell;
-``roll(w, 1, 0)`` supplies the previous x-cell value. Axis 1 does the same in
+``roll(w, -1, 0)`` retrieves the next x-cell value at each current cell;
+``roll(w, 1, 0)`` retrieves the previous x-cell value. Axis 1 does the same in
 y. Here ``w`` is any one component field. Algebraically,
 
 .. code-block:: text
@@ -203,7 +207,7 @@ Rusanov fluxes at cell faces
 
 A shared face flux makes the amount leaving one cell enter its neighbour.
 Rusanov averages adjacent physical fluxes and damps their state jump. This
-adds numerical diffusion, not physical viscosity.
+damping represents numerical diffusion, not physical viscosity.
 
 Gravity waves move relative to the fluid with speed :math:`c` [Clawpack]_. The non-negative
 cell speed bounds :math:`s^x` and :math:`s^y` combine advection and waves:
@@ -223,7 +227,8 @@ the right and top faces are :math:`a^x` and :math:`a^y`:
    a^x_{i+1/2,j}=\max(s^x_{ij},s^x_{i+1,j}), \qquad
    a^y_{i,j+1/2}=\max(s^y_{ij},s^y_{i,j+1}).
 
-The maximum selects the larger speed from the two cells sharing a face.
+The maximum selects the larger of the two speeds from the cells sharing a
+face.
 The ``face_speed`` function uses the elementwise identity
 
 .. math::
@@ -362,7 +367,7 @@ first order.
 
 
 ``q1,q2`` are internal states; ``q_next`` is the completed update. Each
-``rhs`` call recomputes both directional fluxes from its own stage state.
+``rhs`` call recomputes both directional fluxes using its own updated state.
 
 
 .. code-block:: text
@@ -417,7 +422,7 @@ these speed bounds and select the larger bound on each side of a cell face:
 Starting from a smooth periodic bump
 ------------------------------------
 
-A Gaussian written using ordinary distance from the centre need not join
+A Gaussian written using ordinary distance from the center need not join
 smoothly across a periodic boundary. The example instead uses cosines inside
 an exponential, so the height and its derivatives match at opposite edges.
 The initial condition is
@@ -442,13 +447,13 @@ The initial condition is
    A &= 0.05, & H &= 1.
    \end{aligned}
 
-The shape :math:`B` peaks at one at its centre :math:`(x_c,y_c)`.
+The shape :math:`B` peaks at one at its center :math:`(x_c,y_c)`.
 :math:`A` (``amplitude``) sets the peak displacement; smaller positive
 :math:`\beta` gives a narrower bump. Here :math:`\exp` is the natural
 exponential, :math:`\cos` uses radians, and ``pi`` stores :math:`\pi`.
 
-``initial_state`` samples the profile at cell centres to approximate cell
-averages. On this even-sized grid, no cell centre hits the peak exactly.
+``initial_state`` samples the profile at cell centers to approximate cell
+averages. On this even-sized grid, no cell center hits the peak exactly.
 The nested for-expressions build ``bump``; ``zero`` initializes both momenta
 at rest.
 
@@ -522,8 +527,8 @@ Visualising the results
 
 The plots below show how the small water bump changes over time. The colours
 show whether the surface is above or below the reference depth. The arrows in
-the 2D plot show the direction of the water motion. The 3D plot makes the
-spreading wave easier to see. Together, the plots show that the initial bump
+the 2D plot show the direction of the water motion. The 3D plot illustrates
+the spreading wave more clearly. Together, the plots show that the initial bump
 spreads outward and creates horizontal water motion.
 
 .. figure:: /_static/images/shallow_water_surface_velocity_4panel_t06.png
